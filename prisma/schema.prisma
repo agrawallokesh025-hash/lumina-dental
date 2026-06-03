@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String?  @unique
+  passwordHash String?
+  role         String   @default("PATIENT") // "ADMIN" or "PATIENT"
+  firstName    String?
+  lastName     String?
+  phone        String?  @unique
+  email        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  appointments Appointment[]
+  otps         Otp[]
+}
+
+model Appointment {
+  id        String   @id @default(uuid())
+  patientId String
+  date      String   // Stored as YYYY-MM-DD for precise querying
+  time      String   // Stored as HH:MM (e.g., 14:30)
+  service   String   @default("General Consultation")
+  status    String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient   User     @relation(fields: [patientId], references: [id])
+
+  // STRICT DOUBLE BOOKING PREVENTION: Cannot have two appointments at the exact same date and time across the clinic.
+  @@unique([date, time]) 
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  attempts  Int      @default(0) // Failed verification attempts for this specific OTP
+  createdAt DateTime @default(now()) // Used to track daily global limits per user
+
+  user      User     @relation(fields: [userId], references: [id])
+}
