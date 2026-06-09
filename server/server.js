@@ -8,32 +8,49 @@ const adminRoutes = require('./routes/adminRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 
-const app = express();
+const next = require('next');
+const path = require('path');
 
-// Security Middleware
-app.use(helmet());
+const dev = process.env.NODE_ENV !== 'production';
+const nextApp = next({ dev, dir: path.join(__dirname, '..') });
+const handle = nextApp.getRequestHandler();
 
-// Global Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-  message: { error: 'Too many requests from this IP, please try again after 15 minutes' },
-  standardHeaders: true, 
-  legacyHeaders: false,
-});
-app.use(limiter);
+nextApp.prepare().then(() => {
+  const app = express();
 
-app.use(express.json());
-app.use(cookieParser());
+  // Security Middleware
+  app.use(helmet({
+    contentSecurityPolicy: false, // Next.js often needs this disabled or carefully configured in dev
+  }));
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/patients', patientRoutes);
-app.use('/api/appointments', appointmentRoutes);
+  // Global Rate Limiting
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: 'Too many requests from this IP, please try again after 15 minutes' },
+    standardHeaders: true, 
+    legacyHeaders: false,
+  });
+  app.use('/api/', limiter); // Apply rate limiter ONLY to API routes
 
-const PORT = process.env.PORT || 5000;
+  app.use(express.json());
+  app.use(cookieParser());
 
-app.listen(PORT, () => {
-  console.log(`🚀 Express backend running on http://localhost:${PORT}`);
+  // API Routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/patients', patientRoutes);
+  app.use('/api/appointments', appointmentRoutes);
+
+  // Send all other requests to Next.js
+  app.all('*', (req, res) => {
+    return handle(req, res);
+  });
+
+  const PORT = process.env.PORT || 5000;
+
+  app.listen(PORT, (err) => {
+    if (err) throw err;
+    console.log(`🚀 Next.js + Express running seamlessly on port ${PORT}`);
+  });
 });

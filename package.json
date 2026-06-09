@@ -3,13 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "dev:frontend": "next dev",
-    "dev:backend": "nodemon server/server.js",
+    "dev": "node server/server.js",
     "build": "next build",
-    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
-    "start:frontend": "next start",
-    "start:backend": "node server/server.js",
+    "start": "node server/server.js",
     "lint": "eslint"
   },
   "dependencies": {
