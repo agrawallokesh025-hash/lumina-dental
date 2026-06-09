@@ -17,32 +17,39 @@ export default function ImageSequence() {
   // This prevents React from forcing 192 rapid re-renders and crashing the thread.
   const [isReady, setIsReady] = useState(false);
 
-  // 1. Preload Images (Chunked)
+  // 1. Preload Images (Strict Recursive Chunking)
   useEffect(() => {
-    const loadBatch = (start: number, end: number, callback?: () => void) => {
+    // FIX: Recursively load images in small batches of 10 to prevent the browser's 
+    // network queue from locking up the main thread and freezing the page.
+    const loadBatchRecursively = (start: number, batchSize: number) => {
+      if (start > FRAME_COUNT) return;
+      
+      const end = Math.min(start + batchSize - 1, FRAME_COUNT);
       let batchLoaded = 0;
       const total = end - start + 1;
       
       for (let i = start; i <= end; i++) {
         const img = new Image();
         img.src = `${FRAME_URL_PREFIX}${pad(i)}${FRAME_URL_SUFFIX}`;
-        img.onload = () => {
+        
+        const onComplete = () => {
           imagesRef.current[i - 1] = img;
+          if (i === 1) setIsReady(true); // Trigger UI unblock on first frame
           
-          // Only trigger a React state update ONCE, when the very first frame is ready
-          if (i === 1) setIsReady(true);
-
           batchLoaded++;
-          if (batchLoaded === total && callback) callback();
+          if (batchLoaded === total) {
+            // Once this tiny batch of 10 finishes, request the next 10!
+            loadBatchRecursively(start + batchSize, batchSize);
+          }
         };
+
+        img.onload = onComplete;
+        img.onerror = onComplete; // Ensure a missing frame doesn't permanently halt the sequence
       }
     };
 
-    // Load first 5 frames immediately...
-    loadBatch(1, 5, () => {
-      // ...then load the remaining 187 frames silently without triggering re-renders!
-      loadBatch(6, FRAME_COUNT);
-    });
+    // Kick off the cascade with the first batch of 10
+    loadBatchRecursively(1, 10);
   }, []);
 
   // 2. Play Sequence
