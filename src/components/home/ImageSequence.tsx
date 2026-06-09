@@ -11,16 +11,14 @@ const pad = (num: number) => num.toString().padStart(3, "0");
 
 export default function ImageSequence() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // FIX 1: Use a ref instead of React state to store 192 DOM elements, killing the memory leak
   const imagesRef = useRef<HTMLImageElement[]>(new Array(FRAME_COUNT).fill(null));
-  const [loadedCount, setLoadedCount] = useState(0);
+  
+  // FIX: Track only a single boolean state instead of a number counting up to 192. 
+  // This prevents React from forcing 192 rapid re-renders and crashing the thread.
+  const [isReady, setIsReady] = useState(false);
 
   // 1. Preload Images (Chunked)
   useEffect(() => {
-    let loaded = 0;
-
-    // FIX 2: Chunked Loading to prevent network bottlenecks
     const loadBatch = (start: number, end: number, callback?: () => void) => {
       let batchLoaded = 0;
       const total = end - start + 1;
@@ -30,35 +28,35 @@ export default function ImageSequence() {
         img.src = `${FRAME_URL_PREFIX}${pad(i)}${FRAME_URL_SUFFIX}`;
         img.onload = () => {
           imagesRef.current[i - 1] = img;
-          loaded++;
-          setLoadedCount(loaded);
+          
+          // Only trigger a React state update ONCE, when the very first frame is ready
+          if (i === 1) setIsReady(true);
+
           batchLoaded++;
           if (batchLoaded === total && callback) callback();
         };
       }
     };
 
-    // Load first 5 frames immediately for instant playback...
+    // Load first 5 frames immediately...
     loadBatch(1, 5, () => {
-      // ...then load the remaining 187 frames in the background!
+      // ...then load the remaining 187 frames silently without triggering re-renders!
       loadBatch(6, FRAME_COUNT);
     });
   }, []);
 
   // 2. Play Sequence
   useEffect(() => {
-    const images = imagesRef.current;
-    
-    // Start instantly as soon as the very first frame loads to guarantee dimensions
-    if (loadedCount === 0 || !images[0] || !images[0].complete || images[0].naturalWidth === 0) return;
+    if (!isReady) return;
 
+    const images = imagesRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // FIX 3: Safely lock in natural high-res dimensions
+    // Safely lock in natural high-res dimensions
     canvas.width = images[0].naturalWidth;
     canvas.height = images[0].naturalHeight;
 
@@ -86,11 +84,11 @@ export default function ImageSequence() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [loadedCount]); // Re-evaluate when loadedCount changes to ensure playback starts
+  }, [isReady]); // Only runs ONCE when isReady becomes true, completely stopping the stutter loop!
 
   return (
     <div className="w-full h-full relative flex items-center justify-center">
-      {(!imagesRef.current[0] || !imagesRef.current[0].complete) && (
+      {!isReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-transparent z-10">
           <div className="w-8 h-8 border-4 border-white/10 border-t-gold rounded-full animate-spin"></div>
         </div>
