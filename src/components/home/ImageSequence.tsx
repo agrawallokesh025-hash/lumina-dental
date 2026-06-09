@@ -34,8 +34,8 @@ export default function ImageSequence() {
 
   // 2. Play Sequence
   useEffect(() => {
-    // Start instantly as soon as the first frame loads!
-    if (loadedCount === 0) return;
+    // Start instantly as soon as the very first frame loads to guarantee dimensions
+    if (images.length === 0 || !images[0].complete || images[0].width === 0) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -43,7 +43,7 @@ export default function ImageSequence() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Use the natural dimensions of the first frame
+    // Use the natural dimensions of the first frame safely
     canvas.width = images[0].width;
     canvas.height = images[0].height;
 
@@ -75,7 +75,7 @@ export default function ImageSequence() {
 
   return (
     <div className="w-full h-full relative flex items-center justify-center">
-      {loadedCount === 0 && (
+      {(!images[0] || !images[0].complete) && (
         <div className="absolute inset-0 flex items-center justify-center bg-transparent z-10">
           <div className="w-8 h-8 border-4 border-white/10 border-t-gold rounded-full animate-spin"></div>
         </div>
