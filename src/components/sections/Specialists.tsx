@@ -67,10 +67,10 @@ export default function Specialists() {
           {specialists.map((specialist, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.2, duration: 0.8 }}
+              initial={{ opacity: 0, x: index % 2 === 0 ? -100 : 100 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ delay: index * 0.15, duration: 0.8, ease: "easeOut" }}
               className="group"
             >
               <div className="relative h-[450px] w-full rounded-3xl overflow-hidden mb-6 bg-white/5 border border-white/10">

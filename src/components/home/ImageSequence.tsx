@@ -34,7 +34,8 @@ export default function ImageSequence() {
 
   // 2. Play Sequence
   useEffect(() => {
-    if (images.length < FRAME_COUNT || loadedCount < FRAME_COUNT) return;
+    // Start instantly as soon as the first frame loads!
+    if (loadedCount === 0) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -51,9 +52,17 @@ export default function ImageSequence() {
 
     const renderLoop = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(images[currentFrame], 0, 0, canvas.width, canvas.height);
       
-      currentFrame = (currentFrame + 1) % FRAME_COUNT;
+      if (images[currentFrame] && images[currentFrame].complete) {
+        ctx.drawImage(images[currentFrame], 0, 0, canvas.width, canvas.height);
+      }
+      
+      // Stream the animation: advance only if the next frame has finished downloading
+      const nextFrame = (currentFrame + 1) % FRAME_COUNT;
+      if (images[nextFrame] && images[nextFrame].complete) {
+        currentFrame = nextFrame;
+      }
+
       animationFrameId = requestAnimationFrame(renderLoop);
     };
 
@@ -66,7 +75,7 @@ export default function ImageSequence() {
 
   return (
     <div className="w-full h-full relative flex items-center justify-center">
-      {loadedCount < FRAME_COUNT && (
+      {loadedCount === 0 && (
         <div className="absolute inset-0 flex items-center justify-center bg-transparent z-10">
           <div className="w-8 h-8 border-4 border-white/10 border-t-gold rounded-full animate-spin"></div>
         </div>
