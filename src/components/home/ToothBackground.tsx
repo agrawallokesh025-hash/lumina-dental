@@ -9,7 +9,7 @@ export default function ToothBackground() {
   const { scrollY } = useScroll();
 
   // Use a physics spring to make the scroll tracking feel perfectly smooth and responsive without dropping frames
-  const smoothY = useSpring(scrollY, { stiffness: 400, damping: 40, restDelta: 0.001 });
+  const smoothY = useSpring(scrollY, { stiffness: 100, damping: 30, restDelta: 0.001 });
   
   // Speed up the parallax: Full zoom and fade achieved within 400px of scrolling for an instant reaction
   const scaleParallax = useTransform(smoothY, [0, 400], [1, 1.4]);
