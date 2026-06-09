@@ -43,7 +43,7 @@ nextApp.prepare().then(() => {
   app.use('/api/appointments', appointmentRoutes);
 
   // Send all other requests to Next.js
-  app.all('*', (req, res) => {
+  app.all(/.*/, (req, res) => {
     return handle(req, res);
   });
 
