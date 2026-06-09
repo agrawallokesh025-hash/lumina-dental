@@ -13,16 +13,18 @@ export default function ImageSequence() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imagesRef = useRef<HTMLImageElement[]>(new Array(FRAME_COUNT).fill(null));
   
-  // FIX: Track only a single boolean state instead of a number counting up to 192. 
-  // This prevents React from forcing 192 rapid re-renders and crashing the thread.
+  // Controls when the first frame is visible (instant)
   const [isReady, setIsReady] = useState(false);
+  // Controls when the animation actually begins spinning (prevents choppy network stuttering)
+  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
 
   // 1. Preload Images (Strict Recursive Chunking)
   useEffect(() => {
-    // FIX: Recursively load images in small batches of 10 to prevent the browser's 
-    // network queue from locking up the main thread and freezing the page.
     const loadBatchRecursively = (start: number, batchSize: number) => {
-      if (start > FRAME_COUNT) return;
+      if (start > FRAME_COUNT) {
+        setIsFullyLoaded(true); // All 192 frames are now safely cached in RAM!
+        return;
+      }
       
       const end = Math.min(start + batchSize - 1, FRAME_COUNT);
       let batchLoaded = 0;
@@ -34,21 +36,20 @@ export default function ImageSequence() {
         
         const onComplete = () => {
           imagesRef.current[i - 1] = img;
-          if (i === 1) setIsReady(true); // Trigger UI unblock on first frame
+          if (i === 1) setIsReady(true); // Show first frame instantly
           
           batchLoaded++;
           if (batchLoaded === total) {
-            // Once this tiny batch of 10 finishes, request the next 10!
             loadBatchRecursively(start + batchSize, batchSize);
           }
         };
 
         img.onload = onComplete;
-        img.onerror = onComplete; // Ensure a missing frame doesn't permanently halt the sequence
+        img.onerror = onComplete;
       }
     };
 
-    // Kick off the cascade with the first batch of 10
+    // Load first batch of 10
     loadBatchRecursively(1, 10);
   }, []);
 
@@ -63,7 +64,6 @@ export default function ImageSequence() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Safely lock in natural high-res dimensions
     canvas.width = images[0].naturalWidth;
     canvas.height = images[0].naturalHeight;
 
@@ -77,10 +77,10 @@ export default function ImageSequence() {
         ctx.drawImage(images[currentFrame], 0, 0, canvas.width, canvas.height);
       }
       
-      // Stream the animation: advance only if the next frame has finished downloading
-      const nextFrame = (currentFrame + 1) % FRAME_COUNT;
-      if (images[nextFrame] && images[nextFrame].complete) {
-        currentFrame = nextFrame;
+      // FIX: Only advance the frame if the ENTIRE sequence is fully loaded in RAM.
+      // This prevents the choppy "lagging" stutter effect caused by playing at network speed!
+      if (isFullyLoaded) {
+        currentFrame = (currentFrame + 1) % FRAME_COUNT;
       }
 
       animationFrameId = requestAnimationFrame(renderLoop);
@@ -91,7 +91,7 @@ export default function ImageSequence() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [isReady]); // Only runs ONCE when isReady becomes true, completely stopping the stutter loop!
+  }, [isReady, isFullyLoaded]); 
 
   return (
     <div className="w-full h-full relative flex items-center justify-center">
