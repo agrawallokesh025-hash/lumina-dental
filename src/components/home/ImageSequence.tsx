@@ -15,16 +15,11 @@ export default function ImageSequence() {
   
   // Controls when the first frame is visible (instant)
   const [isReady, setIsReady] = useState(false);
-  // Controls when the animation actually begins spinning (prevents choppy network stuttering)
-  const [isFullyLoaded, setIsFullyLoaded] = useState(false);
 
-  // 1. Preload Images (Strict Recursive Chunking)
+  // 1. Preload Images (Aggressive Interpolative Chunking)
   useEffect(() => {
     const loadBatchRecursively = (start: number, batchSize: number) => {
-      if (start > FRAME_COUNT) {
-        setIsFullyLoaded(true); // All 192 frames are now safely cached in RAM!
-        return;
-      }
+      if (start > FRAME_COUNT) return;
       
       const end = Math.min(start + batchSize - 1, FRAME_COUNT);
       let batchLoaded = 0;
@@ -49,8 +44,8 @@ export default function ImageSequence() {
       }
     };
 
-    // Load first batch of 10
-    loadBatchRecursively(1, 10);
+    // Load aggressively in batches of 30 for much faster background saturation
+    loadBatchRecursively(1, 30);
   }, []);
 
   // 2. Play Sequence
@@ -73,14 +68,22 @@ export default function ImageSequence() {
     const renderLoop = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      if (images[currentFrame] && images[currentFrame].complete) {
-        ctx.drawImage(images[currentFrame], 0, 0, canvas.width, canvas.height);
-      }
+      // Interpolative Playback: Always advance the logical playhead at 60 FPS to prevent freezing!
+      currentFrame = (currentFrame + 1) % FRAME_COUNT;
       
-      // FIX: Only advance the frame if the ENTIRE sequence is fully loaded in RAM.
-      // This prevents the choppy "lagging" stutter effect caused by playing at network speed!
-      if (isFullyLoaded) {
-        currentFrame = (currentFrame + 1) % FRAME_COUNT;
+      // If the exact target frame hasn't downloaded yet, instantly scan backwards and draw 
+      // the most recently downloaded frame. This creates a low-framerate animation at first 
+      // that seamlessly upgrades to buttery 60 FPS as images download!
+      let frameToDraw = currentFrame;
+      let failsafe = 0;
+      while ((!images[frameToDraw] || !images[frameToDraw].complete) && failsafe < FRAME_COUNT) {
+        frameToDraw--;
+        if (frameToDraw < 0) frameToDraw = FRAME_COUNT - 1;
+        failsafe++;
+      }
+
+      if (images[frameToDraw] && images[frameToDraw].complete) {
+        ctx.drawImage(images[frameToDraw], 0, 0, canvas.width, canvas.height);
       }
 
       animationFrameId = requestAnimationFrame(renderLoop);
@@ -91,7 +94,7 @@ export default function ImageSequence() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [isReady, isFullyLoaded]); 
+  }, [isReady]); 
 
   return (
     <div className="w-full h-full relative flex items-center justify-center">
