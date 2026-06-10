@@ -36,7 +36,11 @@ export default function ToothBackground() {
 
         {/* Tooth Image Sequence - Full screen across all devices */}
         <motion.div 
-          style={{ scale: scaleParallax }}
+          style={{ 
+            scale: scaleParallax,
+            willChange: 'transform',
+            transformOrigin: 'center center'
+          }}
           className="absolute inset-0 w-full h-full z-10 pointer-events-none opacity-80 md:opacity-100 flex items-center justify-center"
         >
           <ImageSequence />
