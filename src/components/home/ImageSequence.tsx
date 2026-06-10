@@ -27,7 +27,6 @@ export default function ImageSequence() {
       
       for (let i = start; i <= end; i++) {
         const img = new Image();
-        img.src = `${FRAME_URL_PREFIX}${pad(i)}${FRAME_URL_SUFFIX}`;
         
         const onComplete = () => {
           imagesRef.current[i - 1] = img;
@@ -39,8 +38,11 @@ export default function ImageSequence() {
           }
         };
 
+        // FIX: Must attach event listeners BEFORE setting src, otherwise cached images
+        // fire instantly and halt the entire recursive loading chain!
         img.onload = onComplete;
         img.onerror = onComplete;
+        img.src = `${FRAME_URL_PREFIX}${pad(i)}${FRAME_URL_SUFFIX}`;
       }
     };
 

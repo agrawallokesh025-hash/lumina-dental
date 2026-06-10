@@ -69,7 +69,7 @@ export default function Specialists() {
               key={index}
               initial={{ opacity: 0, x: index % 2 === 0 ? -100 : 100 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: false, margin: "-50px" }}
+              viewport={{ once: false, amount: 0.2 }}
               transition={{ delay: index * 0.15, duration: 0.8, ease: "easeOut" }}
               className="group"
             >
